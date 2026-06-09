@@ -14,11 +14,33 @@ interface RegisterData {
 const api = {
     post: async (path: string, data: any) => {
         console.log(`[Mock API POST] ${path}`, data);
-        // Giả lập độ trễ mạng
         await new Promise(resolve => setTimeout(resolve, 800));
+
+        if (path === '/dang-nhap') {
+            const { username, password } = data;
+            if (username === 'admin' && password === 'admin123') {
+                return {
+                    data: {
+                        result: { maTK: 'AD001', role: 'ADMIN', ten: 'Quản trị viên' },
+                        message: 'Đăng nhập quyền Admin thành công!'
+                    }
+                };
+            }
+            if (username === 'user' && password === '123456') {
+                return {
+                    data: {
+                        result: { maTK: 'KH001', role: 'KHACHHANG', ten: 'Khách hàng mẫu' },
+                        message: 'Đăng nhập thành công!'
+                    }
+                };
+            }
+            throw { response: { data: { message: 'Tài khoản hoặc mật khẩu không đúng (Thử admin/admin123 hoặc user/123456)' } } };
+        }
+
         return { data: { result: { maTK: '123', role: 'KHACHHANG' }, message: 'Thao tác giả lập thành công!' } };
     }
 };
+
 const updateCustomerInfo = (data: any) => console.log('[Mock Context] Cập nhật thông tin khách hàng:', data);
 
 const Login: React.FC = () => {
@@ -36,6 +58,7 @@ const Login: React.FC = () => {
         email: '',
         diaChi: '',
     });
+
     const handleRegisterInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setRegisterData({ ...registerData, [name]: value });
@@ -51,6 +74,7 @@ const Login: React.FC = () => {
         }
         return null;
     };
+
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         const validationError = validateRegister();
@@ -59,62 +83,53 @@ const Login: React.FC = () => {
             return;
         }
         try {
-            setError(''); // Xóa lỗi cũ trước khi xử lý
+            setError('');
             const { confirmPassword, ...dataToSend } = registerData;
             const response = await api.post('/dang-ky', dataToSend);
 
-            // 1. Bật message thành công trả về từ server (ví dụ: "Đăng ký thành công")
-            // Nếu server không trả về chuỗi message cụ thể, sẽ dùng câu mặc định bên dưới
             alert(response.data?.message || "Đăng ký thành công!");
-
-            // 2. Reset form và đóng modal đăng ký
             setShowRegisterModal(false);
             setRegisterData({ username: '', password: '', confirmPassword: '', sdt: '', email: '', diaChi: '' });
-
-            // 3. Điều hướng thẳng về trang chủ "/" thay vì trang profile
             navigate('/');
-
         } catch (err: any) {
             console.error('Lỗi đăng ký:', err);
-            // Bật message lỗi từ server trả về (Ví dụ: "Tên đăng nhập đã tồn tại")
             alert(err.response?.data?.message || 'Đăng ký thất bại. Vui lòng thử lại.');
         }
     };
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-
         try {
             setError('');
             const response = await api.post('/dang-nhap', { username, password });
+            const result = response.data?.result;
 
-            const maTK = response.data?.result?.maTK;
-            localStorage.setItem('maTK', maTK);
-
-            const role = response.data?.result?.role;
-            localStorage.setItem('role', role);
-
-            // Lưu thông tin khách hàng vào context
-            const customerData = response.data?.result;
-            if (customerData) {
-                updateCustomerInfo(customerData);
-            }
-
-            if (role) {
-                if (role === 'ADMIN') {
-                    navigate('/servicepage');
-                } else if (role === 'KHACHHANG') {
-                    navigate('/cusorderpage');
-                } else {
-                    navigate('/');
-                }
-            } else {
+            if (!result || !result.role) {
                 setError('Không lấy được thông tin phân quyền từ server.');
+                return;
             }
+
+            localStorage.setItem('maTK', result.maTK);
+            localStorage.setItem('role', result.role);
+            updateCustomerInfo(result);
+
+            const redirectRoutes: Record<string, string> = {
+                ADMIN: '/products',
+                KHACHHANG: '/cusorderpage',
+            };
+            const targetPath = redirectRoutes[result.role] || '/';
+            navigate(targetPath);
         } catch (err: any) {
             console.error('Lỗi đăng nhập:', err);
-            setError('Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản và mật khẩu.');
+            setError(err.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản và mật khẩu.');
         }
     };
+
+    // TỐI ƯU: Đưa biến kiểm tra dữ liệu hợp lệ (Validation) lên đây trước lệnh return của Component
+    const isRegisterInvalid = !registerData.username ||
+        !registerData.password ||
+        !registerData.confirmPassword ||
+        registerData.password !== registerData.confirmPassword;
 
     return (
         <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
@@ -165,8 +180,8 @@ const Login: React.FC = () => {
             {showRegisterModal && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center',
-                    alignItems: 'center', zIndex: 1000
+                    backgroundColor: 'rgba(143, 100, 132, 0.8)', display: 'flex', justifyContent: 'center',
+                    alignItems: 'center'
                 }}>
                     <div style={{
                         backgroundColor: 'white', padding: '30px', borderRadius: '12px',
@@ -223,12 +238,12 @@ const Login: React.FC = () => {
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <button
                                     type="submit"
-                                    disabled={registerData.confirmPassword !== '' && registerData.password !== registerData.confirmPassword}
+                                    disabled={isRegisterInvalid}
                                     style={{
                                         flex: 2, padding: '12px',
-                                        backgroundColor: (registerData.confirmPassword !== '' && registerData.password !== registerData.confirmPassword) ? '#F472B6' : '#BE185D',
+                                        backgroundColor: isRegisterInvalid ? '#F472B6' : '#BE185D',
                                         color: 'white', border: 'none', borderRadius: '6px',
-                                        cursor: (registerData.confirmPassword !== '' && registerData.password !== registerData.confirmPassword) ? 'not-allowed' : 'pointer',
+                                        cursor: isRegisterInvalid ? 'not-allowed' : 'pointer',
                                         fontWeight: 'bold'
                                     }}
                                 >
@@ -252,4 +267,5 @@ const Login: React.FC = () => {
         </div>
     );
 };
+
 export default Login;

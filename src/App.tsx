@@ -1,17 +1,29 @@
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { SidebarProvider } from './context/Sidebarcontext'; // Thêm dòng này
 import Login from './pages/common/Login';
-
+import ProductsPage from './pages/shared/Products/Products';
+import Transactions from './pages/shared/Transactions/index';
+import Partners from './pages/shared/Partners/index';
+import { Employees } from './pages/admin/StaffManagement/Employees';
+import Categories from './pages/shared/Products/Categories';
 
 const App: React.FC = () => {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/login" element={<Login />} />
-      </Routes>
-    </Router>
+    <SidebarProvider> {/* Bọc toàn bộ ở đây */}
+      <Router>
+        <Routes>
+          <Route path="/" element={<Navigate to="/products" replace />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/dashboard" element={<ProductsPage />} /> {/* Placeholder cho Dashboard */}
+          <Route path="/products" element={<ProductsPage />} />
+          <Route path="/transactions" element={<Transactions />} />
+          <Route path="/partners" element={<Partners />} />
+          <Route path="/employees" element={<Employees />} />
+          <Route path="/categories" element={<Categories />} />
+        </Routes>
+      </Router>
+    </SidebarProvider>
   );
 }
 
